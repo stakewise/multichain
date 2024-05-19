@@ -7,3 +7,7 @@
 [submodule "lib/wormhole-solidity-sdk"]
 	path = lib/wormhole-solidity-sdk
 	url = https://github.com/wormhole-foundation/wormhole-solidity-sdk
+[submodule "lib/v3-core"]
+    path = lib/v3-core
+    url = https://github.com/stakewise/v3-core.git
+    branch = solidity-version
