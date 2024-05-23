@@ -4,7 +4,7 @@ pragma solidity ^0.8.22;
 
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {IWormholeRelayer} from "@wormhole-solidity-sdk/interfaces/IWormholeRelayer.sol";
-import {IBalancerRateProvider} from "@stakewise-core/interfaces/IBalancerRateProvider.sol";
+import {IChainlinkV3Aggregator} from "@stakewise-core/interfaces/IChainlinkV3Aggregator.sol";
 import {IPriceFeedSender} from "./interfaces/IPriceFeedSender.sol";
 
 /**
@@ -15,7 +15,7 @@ import {IPriceFeedSender} from "./interfaces/IPriceFeedSender.sol";
 contract PriceFeedSender is IPriceFeedSender {
     error InsufficientFunds();
 
-    IBalancerRateProvider private immutable _priceFeed;
+    IChainlinkV3Aggregator private immutable _priceFeed;
     IWormholeRelayer private immutable _wormholeRelayer;
     uint256 private immutable _gasLimit;
     uint16 private immutable _chainId;
@@ -28,7 +28,7 @@ contract PriceFeedSender is IPriceFeedSender {
      * @param chainId The Wormhole chain ID
      */
     constructor(address priceFeed, address wormholeRelayer, uint256 gasLimit, uint16 chainId) {
-        _priceFeed = IBalancerRateProvider(priceFeed);
+        _priceFeed = IChainlinkV3Aggregator(priceFeed);
         _wormholeRelayer = IWormholeRelayer(wormholeRelayer);
         _gasLimit = gasLimit;
         _chainId = chainId;
@@ -52,8 +52,9 @@ contract PriceFeedSender is IPriceFeedSender {
         }
 
         // fetch latest rate
-        uint128 timestamp = uint128(block.timestamp); // cannot overflow on human timescales
-        uint128 newRate = SafeCast.toUint128(_priceFeed.getRate());
+        (, int256 answer,, uint256 updatedAt,) = _priceFeed.latestRoundData();
+        uint128 timestamp = SafeCast.toUint128(updatedAt);
+        uint128 newRate = SafeCast.toUint128(SafeCast.toUint256(answer));
 
         // send the rate to the Wormhole Relayer
         _wormholeRelayer.sendPayloadToEvm{value: cost}(

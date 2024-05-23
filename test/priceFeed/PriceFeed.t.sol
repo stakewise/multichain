@@ -5,9 +5,10 @@ pragma solidity ^0.8.22;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {Test} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
+import {GasSnapshot} from "forge-gas-snapshot/GasSnapshot.sol";
 import {PriceFeed, IPriceFeed} from "../../src/priceFeed/PriceFeed.sol";
 
-contract PriceFeedTest is Test {
+contract PriceFeedTest is Test, GasSnapshot {
     PriceFeed priceFeed;
 
     function setUp() public {
@@ -22,7 +23,11 @@ contract PriceFeedTest is Test {
         vm.expectEmit(false, false, false, true);
         emit IPriceFeed.RateReceiverUpdated(address(1));
         address newRateReceiver = address(1);
+
+        snapStart("OsToken_setRateReceiver");
         priceFeed.setRateReceiver(newRateReceiver);
+        snapEnd();
+
         assertEq(priceFeed.rateReceiver(), newRateReceiver);
     }
 
@@ -37,7 +42,11 @@ contract PriceFeedTest is Test {
 
         vm.expectEmit(true, false, false, true);
         emit IPriceFeed.RateUpdated(address(this), rate, timestamp);
+
+        snapStart("OsToken_setRate");
         priceFeed.setRate(timestamp, rate);
+        snapEnd();
+
         assertEq(priceFeed.getRate(), 123);
         assertEq(priceFeed.latestTimestamp(), timestamp);
         assertEq(priceFeed.latestAnswer(), int256(uint256(rate)));

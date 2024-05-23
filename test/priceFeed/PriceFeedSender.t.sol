@@ -4,10 +4,11 @@ pragma solidity ^0.8.22;
 
 import {Test} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
+import {GasSnapshot} from "forge-gas-snapshot/GasSnapshot.sol";
 import {PriceFeedSender} from "../../src/priceFeed/PriceFeedSender.sol";
 import {PriceFeed} from "../../src/priceFeed/PriceFeed.sol";
 
-contract PriceFeedSenderTest is Test {
+contract PriceFeedSenderTest is Test, GasSnapshot {
     address priceFeed;
     address wormholeRelayer = address(1);
     uint256 gasLimit = 1000000;
@@ -68,6 +69,8 @@ contract PriceFeedSenderTest is Test {
             ),
             abi.encode(1)
         );
+        snapStart("PriceFeedReceiver_syncRate");
         priceFeedSender.syncRate{value: cost}(targetChain, targetAddress);
+        snapEnd();
     }
 }

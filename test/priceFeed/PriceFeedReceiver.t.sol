@@ -4,11 +4,12 @@ pragma solidity ^0.8.22;
 
 import {Test} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
+import {GasSnapshot} from "forge-gas-snapshot/GasSnapshot.sol";
 import {toWormholeFormat} from "@wormhole-solidity-sdk/Utils.sol";
 import {PriceFeedReceiver} from "../../src/priceFeed/PriceFeedReceiver.sol";
 import {PriceFeed} from "../../src/priceFeed/PriceFeed.sol";
 
-contract PriceFeedReceiverTest is Test {
+contract PriceFeedReceiverTest is Test, GasSnapshot {
     PriceFeed priceFeed;
 
     function setUp() public {
@@ -36,7 +37,10 @@ contract PriceFeedReceiverTest is Test {
             payload, new bytes[](0), toWormholeFormat(address(0xABCE)), 2, bytes32(0)
         );
 
+        snapStart("PriceFeedReceiver_receiveWormholeMessages");
         priceFeedReceiver.receiveWormholeMessages(payload, new bytes[](0), sourceAddress, 2, bytes32(0));
+        snapEnd();
+
         assertEq(priceFeed.getRate(), newRate);
         assertEq(priceFeed.latestTimestamp(), block.timestamp);
 
