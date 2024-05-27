@@ -17,9 +17,7 @@ jobs:
 
       - uses: actions/setup-node@v3
         with:
-          node-version: 16
-          cache-dependency-path: "./test/js-scripts"
-          cache: "yarn"
+          node-version: 18
 
       - run: yarn
         working-directory: ./test/js-scripts
