@@ -1,5 +1,6 @@
 import os
 import time
+from eth_account import Account
 from web3 import Web3
 from dotenv import load_dotenv
 
@@ -10,7 +11,7 @@ TWELVE_HOURS = 12 * 60 * 60
 MAINNET_PROVIDER = Web3(Web3.HTTPProvider(os.getenv("MAINNET_RPC_URL")))
 ARBITRUM_PROVIDER = Web3(Web3.HTTPProvider(os.getenv("ARBITRUM_RPC_URL")))
 PRIVATE_KEY = os.getenv("PRIVATE_KEY")
-ACCOUNT = MAINNET_PROVIDER.eth.account.from_key(PRIVATE_KEY)
+ACCOUNT = Account.from_key(PRIVATE_KEY)
 ACCOUNT_ADDRESS = ACCOUNT.address
 
 price_feed_abi = [
@@ -41,14 +42,14 @@ def check_and_sync():
 
     # Step 3: Sync the rate
     tx = price_feed_sender.functions.syncRate(target_chain, target_address).build_transaction({
-        'chainId': 1,  # Mainnet
+        'chainId': target_chain,
         'gas': 200000,
         'gasPrice': Web3.to_wei('20', 'gwei'),
-        'nonce': MAINNET_PROVIDER.eth.get_transaction_count(ACCOUNT.address),
+        'nonce': MAINNET_PROVIDER.eth.get_transaction_count(ACCOUNT_ADDRESS),
         'value': current_rate
     })
 
-    signed_tx = ACCOUNT.sign_transaction(tx)
+    signed_tx = ACCOUNT.sign_transaction(tx, PRIVATE_KEY)
     tx_hash = MAINNET_PROVIDER.eth.send_raw_transaction(signed_tx.rawTransaction)
 
     print(f"Sync transaction sent: {tx_hash.hex()}")
