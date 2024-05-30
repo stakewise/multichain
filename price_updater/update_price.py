@@ -26,10 +26,10 @@ price_feed_abi = [
     {"constant": True, "inputs": [{"name": "targetChain", "type": "uint16"}], "name": "quoteRateSync", "outputs": [{"name": "cost", "type": "uint256"}], "payable": False, "stateMutability": "view", "type": "function"},
 ]
 
-price_feed_address = Web3.to_checksum_address(os.getenv("PRICE_FEED"))  # Mainnet
-price_feed_sender_address = Web3.to_checksum_address(os.getenv("PRICE_FEED_SENDER"))  # Mainnet
+price_feed_address = Web3.to_checksum_address(os.getenv("PRICE_FEED"))
+price_feed_sender_address = Web3.to_checksum_address(os.getenv("PRICE_FEED_SENDER"))
 target_chain = int(os.getenv("TARGET_CHAIN"))
-target_address = Web3.to_checksum_address(os.getenv("TARGET_ADDRESS"))  # Arbitrum
+target_address = Web3.to_checksum_address(os.getenv("TARGET_ADDRESS"))
 
 def check_and_sync():
     price_feed = MAINNET_PROVIDER.eth.contract(address=price_feed_address, abi=price_feed_abi)
@@ -60,5 +60,5 @@ if __name__ == "__main__":
     try:
         check_and_sync()
     except Exception as e:
-        logger.error(f"Error in check_and_sync: {e}")
+        logger.error(e)
         exit(1)
