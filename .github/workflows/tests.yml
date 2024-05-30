@@ -13,13 +13,6 @@ jobs:
         with:
           submodules: recursive
 
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 18
-
-      - run: yarn
-        working-directory: test
-
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
@@ -27,11 +20,8 @@ jobs:
 
       - name: Build
         run: forge build
-        env:
-          FOUNDRY_PROFILE: ci
 
       - name: Run tests
         run: forge test --isolate -vvv
         env:
-          FOUNDRY_PROFILE: ci
           FORGE_SNAPSHOT_CHECK: true
