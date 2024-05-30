@@ -12,9 +12,11 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 TWELVE_HOURS = 12 * 60 * 60
+ONE_HOUR = 60 * 60
+CHECK_INTERVAL = 60  # Check every minute
 
 MAINNET_PROVIDER = Web3(Web3.HTTPProvider(os.getenv("MAINNET_RPC_URL")))
-ARBITRUM_PROVIDER = Web3(Web3.HTTPProvider(os.getenv("ARBITRUM_RPC_URL")))
+TARGET_RPC_PROVIDER = Web3(Web3.HTTPProvider(os.getenv("TARGET_RPC_URL")))
 PRIVATE_KEY = os.getenv("PRIVATE_KEY")
 ACCOUNT = Account.from_key(PRIVATE_KEY)
 ACCOUNT_ADDRESS = ACCOUNT.address
@@ -55,6 +57,18 @@ def check_and_sync():
     logger.info(f"Sync transaction sent: {tx.hex()}")
     receipt = MAINNET_PROVIDER.eth.wait_for_transaction_receipt(tx)
     logger.info("Sync transaction confirmed.")
+
+    # Step 4: Wait for the timestamp to update on the target chain
+    start_time = int(time.time())
+    while int(time.time()) - start_time < ONE_HOUR:
+        new_timestamp = price_feed.functions.latestTimestamp().call()
+        if new_timestamp > latest_timestamp:
+            logger.info("Timestamp updated on the target chain.")
+            return
+        logger.info("Waiting for the timestamp to update...")
+        time.sleep(CHECK_INTERVAL)
+
+    raise TimeoutError("Timestamp did not update on the target chain within one hour.")
 
 if __name__ == "__main__":
     try:
