@@ -50,8 +50,6 @@ def check_and_sync():
     tx = price_feed_sender.functions.syncRate(target_chain, target_address).transact({
         'from': ACCOUNT_ADDRESS,
         'value': current_rate,
-        'gas': 200000,
-        'gasPrice': Web3.to_wei('20', 'gwei'),
     })
 
     logger.info(f"Sync transaction sent: {tx.hex()}")
