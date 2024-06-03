@@ -1,6 +1,7 @@
 # Compiler files
 cache/
 out/
+*venv/
 
 # Ignores development broadcast logs
 !/broadcast
