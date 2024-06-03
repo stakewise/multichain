@@ -34,7 +34,7 @@ target_chain = int(os.getenv("TARGET_CHAIN"))
 target_address = Web3.to_checksum_address(os.getenv("TARGET_ADDRESS"))
 
 def check_and_sync():
-    price_feed = MAINNET_PROVIDER.eth.contract(address=price_feed_address, abi=price_feed_abi)
+    price_feed = TARGET_RPC_PROVIDER.eth.contract(address=price_feed_address, abi=price_feed_abi)
     price_feed_sender = MAINNET_PROVIDER.eth.contract(address=price_feed_sender_address, abi=price_feed_abi)
 
     # Step 1: Check latest timestamp
