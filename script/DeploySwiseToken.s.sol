@@ -3,16 +3,16 @@
 pragma solidity ^0.8.22;
 
 import {Script, console2} from "forge-std/Script.sol";
-import {OsToken} from "../src/tokens/OsToken.sol";
+import {SwiseToken} from "../src/tokens/SwiseToken.sol";
 
-contract DeployOsToken is Script {
+contract DeploySwiseToken is Script {
     function run() external {
         vm.startBroadcast();
         console2.log("Deploying from: ", msg.sender);
 
-        // Deploy OsToken.
-        OsToken osToken = new OsToken(msg.sender, "Staked ETH", "osETH");
-        console2.log("OsToken deployed at: ", address(osToken));
+        // Deploy SwiseToken.
+        SwiseToken swiseToken = new SwiseToken(msg.sender, "StakeWise", "SWISE");
+        console2.log("SwiseToken deployed at: ", address(swiseToken));
 
         vm.stopBroadcast();
     }

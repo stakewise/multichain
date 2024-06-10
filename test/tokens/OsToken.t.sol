@@ -7,8 +7,8 @@ import {Errors} from "@stakewise-core/libraries/Errors.sol";
 import {GasSnapshot} from "forge-gas-snapshot/GasSnapshot.sol";
 import {Test} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
-import {OsToken, IOsToken} from "../src/OsToken.sol";
-import {SigUtils} from "./helpers/SigUtils.sol";
+import {OsToken, IOsToken} from "../../src/tokens/OsToken.sol";
+import {SigUtils} from "../helpers/SigUtils.sol";
 
 contract OsTokenTest is Test, GasSnapshot {
     OsToken osToken;
