@@ -9,16 +9,26 @@ pragma solidity ^0.8.22;
  */
 interface IPriceFeedSender {
     /**
-     * @notice Function for calculating the cost of the rate sync
-     * @param targetChain The Wormhole chain ID of the target chain
-     * @return cost The cost of the rate sync
+     * @notice Emitted when a peer is updated
+     * @param chainId The Wormhole chain ID
+     * @param peerAddress The peer address in universal format
      */
-    function quoteRateSync(uint16 targetChain) external view returns (uint256 cost);
+    event PeerUpdated(uint16 indexed chainId, bytes32 peerAddress);
 
     /**
-     * @notice Function for syncing the rate to the target chain. Must be called with the exact cost of the rate sync.
-     * @param targetChain The Wormhole chain ID of the target chain
-     * @param targetAddress The address of the rate receiver on the target chain
+     * @notice The gas limit for the relay execution on the target chain
+     * @return The gas limit value
      */
-    function syncRate(uint16 targetChain, address targetAddress) external payable;
+    function gasLimit() external view returns (uint128);
+
+    /**
+     * @notice Function for syncing the rate to the target chain via Wormhole Executor Relay.
+     * @param targetChain The Wormhole chain ID of the target chain
+     * @param refundAddress The address to receive any relay refunds
+     * @param totalCost The total cost of the relay (msg.value must cover this + message fee)
+     * @param signedQuote The signed quote from the relay provider
+     */
+    function syncRate(uint16 targetChain, address refundAddress, uint256 totalCost, bytes calldata signedQuote)
+        external
+        payable;
 }

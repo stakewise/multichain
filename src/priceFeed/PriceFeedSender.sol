@@ -2,69 +2,77 @@
 
 pragma solidity ^0.8.22;
 
+import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-import {IWormholeRelayer} from "@wormhole-solidity-sdk/interfaces/IWormholeRelayer.sol";
+import {ExecutorSendQuoteOffChain} from "@wormhole-solidity-sdk/Executor/Integration.sol";
+import {toUniversalAddress} from "@wormhole-solidity-sdk/Utils.sol";
 import {IChainlinkV3Aggregator} from "@stakewise-core/interfaces/IChainlinkV3Aggregator.sol";
+import {CONSISTENCY_LEVEL_FINALIZED} from "@wormhole-solidity-sdk/constants/ConsistencyLevel.sol";
 import {IPriceFeedSender} from "./interfaces/IPriceFeedSender.sol";
 
 /**
  * @title PriceFeedSender
  * @author StakeWise
- * @notice Sends the new rate to the Wormhole Relayer
+ * @notice Sends the new rate to the target chain via Wormhole Executor Relay
  */
-contract PriceFeedSender is IPriceFeedSender {
-    error InsufficientFunds();
-
+contract PriceFeedSender is Ownable2Step, ExecutorSendQuoteOffChain, IPriceFeedSender {
     IChainlinkV3Aggregator private immutable _priceFeed;
-    IWormholeRelayer private immutable _wormholeRelayer;
-    uint256 private immutable _gasLimit;
-    uint16 private immutable _chainId;
+    uint128 public immutable gasLimit;
+
+    mapping(uint16 chainId => bytes32 peerAddress) public peers;
 
     /**
      * @dev Constructor
+     * @param initialOwner The address of the contract owner
      * @param priceFeed The address of the PriceFeed contract
-     * @param wormholeRelayer The address of the Wormhole Relayer contract
-     * @param gasLimit The gas limit for the Wormhole Relayer call
-     * @param chainId The Wormhole chain ID
+     * @param coreBridge The address of the Wormhole Core Bridge contract
+     * @param executor The address of the Wormhole Executor contract
+     * @param _gasLimit The gas limit for the relay execution
      */
-    constructor(address priceFeed, address wormholeRelayer, uint256 gasLimit, uint16 chainId) {
+    constructor(address initialOwner, address priceFeed, address coreBridge, address executor, uint128 _gasLimit)
+        Ownable(initialOwner)
+        ExecutorSendQuoteOffChain(coreBridge, executor)
+    {
         _priceFeed = IChainlinkV3Aggregator(priceFeed);
-        _wormholeRelayer = IWormholeRelayer(wormholeRelayer);
-        _gasLimit = gasLimit;
-        _chainId = chainId;
+        gasLimit = _gasLimit;
+    }
+
+    /**
+     * @notice Sets the peer address for a target chain. Can only be called by the owner.
+     * @param chainId The Wormhole chain ID
+     * @param peerAddress The peer address on the target chain
+     */
+    function setPeer(uint16 chainId, address peerAddress) external onlyOwner {
+        peers[chainId] = toUniversalAddress(peerAddress);
+        emit PeerUpdated(chainId, peers[chainId]);
     }
 
     /// @inheritdoc IPriceFeedSender
-    function quoteRateSync(uint16 targetChain) public view override returns (uint256 cost) {
-        (cost,) = _wormholeRelayer.quoteEVMDeliveryPrice(
-            targetChain,
-            0, // pass zero as receiver value is not used
-            _gasLimit
-        );
-    }
-
-    /// @inheritdoc IPriceFeedSender
-    function syncRate(uint16 targetChain, address targetAddress) external payable override {
-        // check sufficient funds
-        uint256 cost = quoteRateSync(targetChain);
-        if (msg.value != cost) {
-            revert InsufficientFunds();
-        }
-
+    function syncRate(uint16 targetChain, address refundAddress, uint256 totalCost, bytes calldata signedQuote)
+        external
+        payable
+        override
+    {
         // fetch latest rate
         (, int256 answer,, uint256 updatedAt,) = _priceFeed.latestRoundData();
         uint128 timestamp = SafeCast.toUint128(updatedAt);
         uint128 newRate = SafeCast.toUint128(SafeCast.toUint256(answer));
 
-        // send the rate to the Wormhole Relayer
-        _wormholeRelayer.sendPayloadToEvm{value: cost}(
+        // publish message and request execution via Executor
+        _publishAndRelay(
+            abi.encode(timestamp, newRate),
+            CONSISTENCY_LEVEL_FINALIZED,
+            totalCost,
             targetChain,
-            targetAddress,
-            abi.encode(timestamp, newRate), // encode payload
-            0, // pass zero as receiver value is not used
-            _gasLimit,
-            _chainId, // use the current chain ID as the refund chain
-            msg.sender // use the sender as the refund address
+            refundAddress,
+            signedQuote,
+            gasLimit,
+            0, // no msg.value to receiver
+            "" // no extra relay instructions
         );
+    }
+
+    function _getPeer(uint16 chainId) internal view override returns (bytes32) {
+        return peers[chainId];
     }
 }
