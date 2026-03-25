@@ -3,74 +3,79 @@
 pragma solidity ^0.8.22;
 
 import {Test} from "forge-std/Test.sol";
-import {Vm} from "forge-std/Vm.sol";
 import {GasSnapshot} from "forge-gas-snapshot/GasSnapshot.sol";
 import {PriceFeedSender} from "../../src/priceFeed/PriceFeedSender.sol";
 import {PriceFeed} from "../../src/priceFeed/PriceFeed.sol";
 
 contract PriceFeedSenderTest is Test, GasSnapshot {
     address priceFeed;
-    address wormholeRelayer = address(1);
-    uint256 gasLimit = 1000000;
-    uint16 chainId = 2;
+    address coreBridge = address(1);
+    address executor = address(2);
+    uint128 gasLimitVal = 150_000;
 
     function setUp() public {
         PriceFeed _priceFeed = new PriceFeed(address(this), "test");
         _priceFeed.setRateReceiver(address(this));
         _priceFeed.setRate(uint128(block.timestamp), 123);
         priceFeed = address(_priceFeed);
+
+        // mock coreBridge.chainId()
+        vm.mockCall(coreBridge, abi.encodeWithSignature("chainId()"), abi.encode(uint16(2)));
     }
 
-    function test_quoteRateSync() public {
-        PriceFeedSender priceFeedSender = new PriceFeedSender(priceFeed, wormholeRelayer, gasLimit, chainId);
+    function test_gasLimit() public {
+        PriceFeedSender priceFeedSender =
+            new PriceFeedSender(address(this), priceFeed, coreBridge, executor, gasLimitVal);
+        assertEq(priceFeedSender.gasLimit(), gasLimitVal);
+    }
 
-        uint16 targetChain = 2;
-        uint256 cost = 10;
-        vm.mockCall(
-            wormholeRelayer,
-            abi.encodeWithSelector(
-                bytes4(keccak256(bytes("quoteEVMDeliveryPrice(uint16,uint256,uint256)"))), targetChain, 0, gasLimit
-            ),
-            abi.encode(cost, 0)
-        );
-        assertEq(priceFeedSender.quoteRateSync(targetChain), cost);
+    function test_setPeer() public {
+        PriceFeedSender priceFeedSender =
+            new PriceFeedSender(address(this), priceFeed, coreBridge, executor, gasLimitVal);
+
+        address peerAddress = address(0xABCD);
+        uint16 targetChain = 23;
+
+        priceFeedSender.setPeer(targetChain, peerAddress);
+        assertNotEq(priceFeedSender.peers(targetChain), bytes32(0));
+    }
+
+    function test_setPeerRevertsForNonOwner() public {
+        PriceFeedSender priceFeedSender =
+            new PriceFeedSender(address(this), priceFeed, coreBridge, executor, gasLimitVal);
+
+        vm.prank(address(0xBEEF));
+        vm.expectRevert();
+        priceFeedSender.setPeer(23, address(0xABCD));
     }
 
     function test_syncRate() public {
-        PriceFeedSender priceFeedSender = new PriceFeedSender(priceFeed, wormholeRelayer, gasLimit, chainId);
+        PriceFeedSender priceFeedSender =
+            new PriceFeedSender(address(this), priceFeed, coreBridge, executor, gasLimitVal);
 
-        uint16 targetChain = 2;
-        address targetAddress = address(3);
-        uint256 cost = 10;
+        uint16 targetChain = 23;
+        address refundAddress = address(this);
+        uint256 totalCost = 0.01 ether;
+        bytes memory signedQuote = hex"deadbeef";
+
+        // set peer for target chain
+        priceFeedSender.setPeer(targetChain, address(0xABCD));
+
+        // mock coreBridge.messageFee()
+        vm.mockCall(coreBridge, abi.encodeWithSignature("messageFee()"), abi.encode(uint256(0)));
+
+        // mock coreBridge.publishMessage()
+        vm.mockCall(coreBridge, abi.encodeWithSignature("publishMessage(uint32,bytes,uint8)"), abi.encode(uint64(1)));
+
+        // mock executor.requestExecution()
         vm.mockCall(
-            wormholeRelayer,
-            abi.encodeWithSelector(
-                bytes4(keccak256(bytes("quoteEVMDeliveryPrice(uint16,uint256,uint256)"))), targetChain, 0, gasLimit
-            ),
-            abi.encode(cost, 0)
+            executor,
+            abi.encodeWithSignature("requestExecution(uint16,bytes32,address,bytes,bytes,bytes)"),
+            abi.encode()
         );
-        vm.expectRevert(PriceFeedSender.InsufficientFunds.selector);
-        priceFeedSender.syncRate(targetChain, targetAddress);
 
-        vm.expectRevert(PriceFeedSender.InsufficientFunds.selector);
-        priceFeedSender.syncRate{value: cost - 1}(targetChain, targetAddress);
-
-        vm.mockCall(
-            wormholeRelayer,
-            abi.encodeWithSelector(
-                bytes4(keccak256(bytes("sendPayloadToEvm(uint16,address,bytes,uint256,uint256,uint16,address)"))),
-                targetChain,
-                targetAddress,
-                abi.encode(uint128(block.timestamp), 123),
-                0,
-                gasLimit,
-                chainId,
-                address(this)
-            ),
-            abi.encode(1)
-        );
-        snapStart("PriceFeedReceiver_syncRate");
-        priceFeedSender.syncRate{value: cost}(targetChain, targetAddress);
+        snapStart("PriceFeedSender_syncRate");
+        priceFeedSender.syncRate{value: totalCost}(targetChain, refundAddress, totalCost, signedQuote);
         snapEnd();
     }
 }

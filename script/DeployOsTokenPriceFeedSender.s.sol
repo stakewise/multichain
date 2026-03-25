@@ -7,15 +7,17 @@ import {PriceFeedSender} from "../src/priceFeed/PriceFeedSender.sol";
 
 contract DeployOsTokenPriceFeedSender is Script {
     struct ConfigParams {
+        address governor;
         address sourceFeed;
-        address wormholeRelayer;
-        uint16 chainId;
+        address coreBridge;
+        address executor;
     }
 
     function _readEnvVariables() internal view returns (ConfigParams memory params) {
+        params.governor = vm.envAddress("PRICE_FEED_SENDER_GOVERNOR");
         params.sourceFeed = vm.envAddress("PRICE_FEED_SENDER_SOURCE_FEED");
-        params.wormholeRelayer = vm.envAddress("PRICE_FEED_SENDER_WORMHOLE_RELAYER");
-        params.chainId = uint16(vm.envUint("PRICE_FEED_SENDER_CHAIN_ID"));
+        params.coreBridge = vm.envAddress("PRICE_FEED_SENDER_CORE_BRIDGE");
+        params.executor = vm.envAddress("PRICE_FEED_SENDER_EXECUTOR");
     }
 
     function run() external {
@@ -28,7 +30,7 @@ contract DeployOsTokenPriceFeedSender is Script {
 
         // Deploy PriceFeedSender.
         PriceFeedSender priceFeedSender =
-            new PriceFeedSender(params.sourceFeed, params.wormholeRelayer, 150_000, params.chainId);
+            new PriceFeedSender(params.governor, params.sourceFeed, params.coreBridge, params.executor, 150_000);
         console2.log("PriceFeedSender deployed at: ", address(priceFeedSender));
 
         vm.stopBroadcast();
